@@ -68,6 +68,15 @@ def parse_args() -> TrainingConfig:
 def main():
     cfg = parse_args()
 
+    # Force-disable MPS backend if requested, since PyLate CachedContrastive raises when MPS is available.
+    if cfg.force_cpu:
+        import torch  # local import to avoid side effects before arg parsing
+        try:
+            torch.backends.mps.is_available = lambda: False  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
     if not os.path.isdir(cfg.dataset_path):
         logger.error("Dataset directory not found at '%s'. Run prepare_dataset.py first.", cfg.dataset_path)
         raise SystemExit(1)
