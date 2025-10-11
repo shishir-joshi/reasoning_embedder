@@ -1,0 +1,34 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dylib
+
+# Virtual environments
+venv/
+.venv/
+.env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large data and artifacts
+beir-data/
+bright-data/
+indexes/
+output/
+prepared_reasonir_hq/
+bright_evaluation_results/
+
+# Large model and dataset files
+*.safetensors
+*.pt
+*.bin
+*.arrow
+*.sqlite
+*.zip
+
+# OS files
+.DS_Store
+
