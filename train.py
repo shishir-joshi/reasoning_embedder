@@ -31,6 +31,7 @@ def parse_args() -> TrainingConfig:
     p.add_argument("--bf16", action="store_true", default=True)
     p.add_argument("--no-bf16", dest="bf16", action="store_false")
     p.add_argument("--fp16", action="store_true", default=False)
+    p.add_argument("--cpu", action="store_true", default=False, help="Force CPU (disable CUDA/MPS)")
 
     p.add_argument("--sample_size", type=int, default=None)
     p.add_argument("--sample", action="store_true", default=False)
@@ -55,6 +56,7 @@ def parse_args() -> TrainingConfig:
         dataloader_num_workers=args.num_workers,
         bf16=args.bf16,
         fp16=args.fp16,
+        force_cpu=args.cpu,
         sample_size=args.sample_size,
         do_sample=args.sample,
         eval_holdout=args.eval_holdout,

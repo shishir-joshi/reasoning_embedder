@@ -32,6 +32,7 @@ class TrainingConfig:
     dataloader_num_workers: int = 8
     bf16: bool = True
     fp16: bool = False
+    force_cpu: bool = False
 
     # Data handling
     sample_size: Optional[int] = None

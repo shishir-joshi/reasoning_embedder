@@ -45,6 +45,8 @@ def build_args(cfg: TrainingConfig) -> SentenceTransformerTrainingArguments:
         run_name=cfg.run_name,
         learning_rate=cfg.learning_rate,
         dataloader_num_workers=cfg.dataloader_num_workers,
+        no_cuda=cfg.force_cpu,
+        use_mps_device=not cfg.force_cpu,
     )
 
 
