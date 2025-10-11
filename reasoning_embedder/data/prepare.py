@@ -75,7 +75,7 @@ def main():
         )
         logger.info("hq_dataset processed successfully.")
 
-        output_path = "prepared_reasonir_hq"
+        output_path = "data/prepared_reasonir_hq"
         logger.info(f"Saving processed dataset to {output_path}...")
         processed_hq_dataset.save_to_disk(output_path)
         logger.info("Dataset saved successfully.")

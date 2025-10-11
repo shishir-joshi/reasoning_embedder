@@ -8,7 +8,7 @@ import os
 @dataclass
 class TrainingConfig:
     # Data and model
-    dataset_path: str = "prepared_reasonir_hq"
+    dataset_path: str = "data/prepared_reasonir_hq"
     base_model: str = "lightonai/GTE-ModernColBERT-v1"
 
     # Output/run naming
@@ -46,5 +46,5 @@ class TrainingConfig:
         if not self.run_name:
             self.run_name = f"{short}-ReasonIR"
         if not self.output_dir:
-            self.output_dir = os.path.join("output", short, self.run_name)
+            self.output_dir = os.path.join("data", "output", short, self.run_name)
         return self
