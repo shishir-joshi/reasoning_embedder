@@ -16,41 +16,54 @@ def get_doc_and_ids(doc_pairs):
 
 def process_documents(entry, id2doc):
     """
-    Replace the integer/string IDs contained in the `pos` and `neg` fields
-    of *entry* with their corresponding document text.
+    Populate `pos` and `neg` columns with document text in a consistent shape
+    and normalize the query field.
 
-    Each element in `entry["pos"]` / `entry["neg"]` is expected to be a
-    two-item list: `[instruction, doc_id]`.
-      • If *instruction* is an empty string we store the **document text
-        only**.
-      • If *instruction* is non-empty we keep a two-element list
-        `[instruction, document text]`.
+    Expectations from ReasonIR HQ formatting (as seen in the notebook):
+    - entry["pos"] elements are [instruction, doc_id] where doc_id refers to
+      a BRIGHT document id. We must map via `id2doc`.
+    - entry["neg"] elements are [instruction, doc_text] where the second
+      element is already the raw document text. No mapping needed.
 
-    Any pairs that cannot be resolved (e.g. missing `doc_id`) are silently
-    dropped but a debug message is logged for traceability.
+    Output shape for both fields will be a list of two-item lists:
+      [instruction (can be empty string), document_text]
+
+    Additionally, if query is a list of tokens/segments, join into a single
+    string.
     """
     try:
-        for field in ("pos", "neg"):
-            updated: list = []
-            for pair in entry.get(field, []):
-                # Guard against malformed data
-                if (not isinstance(pair, (list, tuple))) or len(pair) != 2:
-                    logger.debug("Malformed %s pair skipped: %s", field, pair)
-                    continue
+        # Normalize query to a string if it's a list
+        q = entry.get("query")
+        if isinstance(q, list):
+            entry["query"] = " ".join(q)
 
-                instruction, doc_id = pair
-                # Ensure we look up using a string key (BRIGHT ids are strings)
-                doc_text = id2doc.get(str(doc_id))
-                if not doc_text:
-                    logger.debug("Document id '%s' not found for field '%s'.", doc_id, field)
-                    continue
+        # Process positives: map id -> text
+        updated_pos: list = []
+        for pair in entry.get("pos", []):
+            if (not isinstance(pair, (list, tuple))) or len(pair) != 2:
+                logger.debug("Malformed pos pair skipped: %s", pair)
+                continue
+            instruction, doc_id = pair
+            doc_text = id2doc.get(str(doc_id))
+            if not doc_text:
+                logger.debug("Document id '%s' not found for field 'pos'.", doc_id)
+                continue
+            # Preserve two-item list shape even if instruction is empty
+            updated_pos.append([instruction if isinstance(instruction, str) else str(instruction), doc_text])
+        entry["pos"] = updated_pos
 
-                if instruction:
-                    updated.append([instruction, doc_text])
-                else:
-                    updated.append(doc_text)
-
-            entry[field] = updated
+        # Process negatives: second element is already text
+        updated_neg: list = []
+        for pair in entry.get("neg", []):
+            if (not isinstance(pair, (list, tuple))) or len(pair) != 2:
+                logger.debug("Malformed neg pair skipped: %s", pair)
+                continue
+            instruction, maybe_text = pair
+            # If the second element looks like an id that exists in id2doc,
+            # we still prefer the mapped text; otherwise treat as text.
+            text = id2doc.get(str(maybe_text), None) or maybe_text
+            updated_neg.append([instruction if isinstance(instruction, str) else str(instruction), text])
+        entry["neg"] = updated_neg
 
     except Exception as exc:  # pragma: no cover
         # Catch any unexpected errors so that .map() continues processing
