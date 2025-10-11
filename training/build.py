@@ -12,12 +12,15 @@ from .config import TrainingConfig
 
 
 def build_model(cfg: TrainingConfig):
-    return models.ColBERT(
+    kwargs = dict(
         model_name_or_path=cfg.base_model,
         document_length=cfg.document_length,
         query_length=cfg.query_length,
         skiplist_words=cfg.skiplist_words,
     )
+    if cfg.force_cpu:
+        kwargs["device"] = "cpu"
+    return models.ColBERT(**kwargs)
 
 
 def build_loss(cfg: TrainingConfig, model):
