@@ -33,6 +33,9 @@ bright_evaluation_results/
 *.sqlite
 *.zip
 
+# Build artifacts
+*.egg-info/
+
 # OS files
 .DS_Store
 

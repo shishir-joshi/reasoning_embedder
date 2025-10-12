@@ -20,3 +20,7 @@ dependencies = [
 [project.scripts]
 reason-train = "reasoning_embedder.cli.train:main"
 reason-prepare = "reasoning_embedder.data.prepare:main"
+
+[tool.setuptools.packages.find]
+include = ["reasoning_embedder*"]
+exclude = ["data*"]
