@@ -96,6 +96,13 @@ def main():
     from reasoning_embedder.training.data import load_prepared, prepare_splits
     from reasoning_embedder.training.build import create_trainer
 
+    # Ensure dataset exists, then load BEFORE auto-lengths so we can sample from it
+    if not os.path.isdir(cfg.dataset_path):
+        logger.error("Dataset directory not found at '%s'. Run reason-prepare first.", cfg.dataset_path)
+        raise SystemExit(1)
+    logger.info("Loading dataset from %s", cfg.dataset_path)
+    dataset = load_prepared(cfg.dataset_path)
+
     # Optionally auto-derive lengths and/or dry-run memory estimation
     if cfg.auto_lengths or cfg.dry_run or cfg.document_length <= 0 or cfg.query_length <= 0:
         try:
@@ -157,13 +164,6 @@ def main():
         except Exception as e:
             logger.info("Dry-run: lengths (doc=%d, query=%d)", cfg.document_length, cfg.query_length)
         return
-
-    if not os.path.isdir(cfg.dataset_path):
-        logger.error("Dataset directory not found at '%s'. Run reason-prepare first.", cfg.dataset_path)
-        raise SystemExit(1)
-
-    logger.info("Loading dataset from %s", cfg.dataset_path)
-    dataset = load_prepared(cfg.dataset_path)
 
     logger.info("Preparing splits and preprocessing examples...")
     train_dataset, _ = prepare_splits(dataset, cfg.do_sample, cfg.sample_size, cfg.seed, cfg.eval_holdout)
