@@ -23,6 +23,28 @@ def build_model(cfg: TrainingConfig):
         kwargs["device"] = "cpu"
     model = models.ColBERT(**kwargs)
     ensure_tokenizer_padding(model)
+    # Cap max sequence lengths to the backbone's supported context to avoid CUDA device-side asserts
+    try:
+        mod = model._first_module()
+        tok = getattr(mod, "tokenizer", None)
+        auto = getattr(mod, "auto_model", None)
+        # Detect backbone limits
+        limits = []
+        if tok is not None and getattr(tok, "model_max_length", None):
+            limits.append(int(tok.model_max_length))
+        if auto is not None and hasattr(getattr(auto, "config", None), "max_position_embeddings") and auto.config.max_position_embeddings:
+            limits.append(int(auto.config.max_position_embeddings))
+        if limits:
+            max_ctx = max(8, min(limits))
+            # Apply conservative caps
+            mod.max_seq_length = max_ctx
+            if tok is not None:
+                try:
+                    tok.model_max_length = max_ctx
+                except Exception:
+                    pass
+    except Exception:
+        pass
     return model
 
 
