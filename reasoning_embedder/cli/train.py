@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 def parse_args() -> TrainingConfig:
     p = argparse.ArgumentParser(description="Train Reason-ModernColBERT aligned with reference gist")
-    p.add_argument("--dataset_path", default="prepared_reasonir_hq")
-    p.add_argument("--base_model", default="lightonai/GTE-ModernColBERT-v1")
+    p.add_argument("--dataset_path", default="data/prepared_reasonir_hq")
+    p.add_argument("--base_model", default="Qwen/Qwen3-Embedding-0.6B")
     p.add_argument("--output_dir", default=None)
     p.add_argument("--run_name", default=None)
 

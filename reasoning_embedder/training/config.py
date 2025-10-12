@@ -9,7 +9,7 @@ import os
 class TrainingConfig:
     # Data and model
     dataset_path: str = "data/prepared_reasonir_hq"
-    base_model: str = "lightonai/GTE-ModernColBERT-v1"
+    base_model: str = "Qwen/Qwen3-Embedding-0.6B"
 
     # Output/run naming
     run_name: Optional[str] = None
