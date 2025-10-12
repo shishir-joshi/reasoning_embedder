@@ -147,6 +147,13 @@ def main():
             if cfg.auto_lengths or cfg.document_length <= 0 or cfg.query_length <= 0:
                 cfg.query_length = q_len
                 cfg.document_length = d_len
+                logger.info(
+                    "Auto lengths selected: document_length=%d, query_length=%d (percentile=%.2f, sample=%d)",
+                    cfg.document_length,
+                    cfg.query_length,
+                    cfg.length_percentile,
+                    min(len(ds), max(1, cfg.length_sample)),
+                )
         except Exception as e:
             logger.warning("Auto length derivation failed: %s", e)
 
