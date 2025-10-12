@@ -39,6 +39,17 @@ def build_args(cfg: TrainingConfig) -> SentenceTransformerTrainingArguments:
     # Prefer bf16 if requested; otherwise enable fp16 when CUDA is available
     fp16 = cfg.fp16 and torch.cuda.is_available()
     bf16 = cfg.bf16
+    # Only enable MPS flag on macOS with available MPS and when not forcing CPU
+    try:
+        import platform
+        use_mps = (
+            platform.system() == "Darwin"
+            and hasattr(torch.backends, "mps")
+            and torch.backends.mps.is_available()
+            and not cfg.force_cpu
+        )
+    except Exception:
+        use_mps = False
     return SentenceTransformerTrainingArguments(
         output_dir=cfg.output_dir,
         num_train_epochs=cfg.num_train_epochs,
@@ -52,7 +63,7 @@ def build_args(cfg: TrainingConfig) -> SentenceTransformerTrainingArguments:
         learning_rate=cfg.learning_rate,
         dataloader_num_workers=cfg.dataloader_num_workers,
         no_cuda=cfg.force_cpu,
-        use_mps_device=not cfg.force_cpu,
+        use_mps_device=use_mps,
         use_cpu=cfg.force_cpu,
     )
 
