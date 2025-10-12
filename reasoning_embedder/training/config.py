@@ -34,6 +34,14 @@ class TrainingConfig:
     fp16: bool = False
     force_cpu: bool = False
 
+    # Length auto-tuning
+    auto_lengths: bool = False
+    length_percentile: float = 0.95
+    length_sample: int = 1000
+
+    # Utility
+    dry_run: bool = False
+
     # Data handling
     sample_size: Optional[int] = None
     do_sample: bool = False
