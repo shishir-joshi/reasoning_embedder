@@ -1,16 +1,13 @@
 import argparse
 import logging
 import os
-from reasoning_embedder.training.config import TrainingConfig
-from reasoning_embedder.training.data import load_prepared, prepare_splits
-from reasoning_embedder.training.build import create_trainer
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
-def parse_args() -> TrainingConfig:
+def parse_args():
     p = argparse.ArgumentParser(description="Train Reason-ModernColBERT aligned with reference gist")
     p.add_argument("--dataset_path", default="data/prepared_reasonir_hq")
     p.add_argument("--base_model", default="Qwen/Qwen3-Embedding-0.6B")
@@ -40,6 +37,7 @@ def parse_args() -> TrainingConfig:
 
     args = p.parse_args()
 
+    from reasoning_embedder.training.config import TrainingConfig
     cfg = TrainingConfig(
         dataset_path=args.dataset_path,
         base_model=args.base_model,
@@ -78,10 +76,15 @@ def main():
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
         # Ensure no CUDA is used by downstream libraries (Accelerate/Transformers)
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        os.environ["ACCELERATE_USE_CPU"] = "true"
         try:
             torch.set_default_device("cpu")
         except Exception:
             pass
+
+    # Import training modules AFTER device/env handling to ensure Accelerate/Transformers pick correct backend
+    from reasoning_embedder.training.data import load_prepared, prepare_splits
+    from reasoning_embedder.training.build import create_trainer
 
     if not os.path.isdir(cfg.dataset_path):
         logger.error("Dataset directory not found at '%s'. Run reason-prepare first.", cfg.dataset_path)
