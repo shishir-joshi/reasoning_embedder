@@ -76,6 +76,12 @@ def main():
         except Exception:
             pass
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+        # Ensure no CUDA is used by downstream libraries (Accelerate/Transformers)
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        try:
+            torch.set_default_device("cpu")
+        except Exception:
+            pass
 
     if not os.path.isdir(cfg.dataset_path):
         logger.error("Dataset directory not found at '%s'. Run reason-prepare first.", cfg.dataset_path)

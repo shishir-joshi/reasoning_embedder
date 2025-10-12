@@ -37,8 +37,8 @@ def build_loss(cfg: TrainingConfig, model):
 
 def build_args(cfg: TrainingConfig) -> SentenceTransformerTrainingArguments:
     # Prefer bf16 if requested; otherwise enable fp16 when CUDA is available
-    fp16 = cfg.fp16 and torch.cuda.is_available()
-    bf16 = cfg.bf16
+    fp16 = (cfg.fp16 and torch.cuda.is_available()) and (not cfg.force_cpu)
+    bf16 = cfg.bf16 and (not cfg.force_cpu)
     # Only enable MPS flag on macOS with available MPS and when not forcing CPU
     try:
         import platform
@@ -91,4 +91,10 @@ def create_trainer(cfg: TrainingConfig, train_dataset) -> SentenceTransformerTra
         loss=loss,
         data_collator=collator,
     )
+    # Extra safeguard: if forcing CPU, move model to cpu explicitly
+    if cfg.force_cpu:
+        try:
+            model.to("cpu")
+        except Exception:
+            pass
     return trainer
