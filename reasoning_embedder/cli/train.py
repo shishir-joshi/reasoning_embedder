@@ -1,9 +1,9 @@
 import argparse
 import logging
 import os
-from training.config import TrainingConfig
-from training.data import load_prepared, prepare_splits
-from training.build import create_trainer
+from reasoning_embedder.training.config import TrainingConfig
+from reasoning_embedder.training.data import load_prepared, prepare_splits
+from reasoning_embedder.training.build import create_trainer
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 def parse_args() -> TrainingConfig:
     p = argparse.ArgumentParser(description="Train Reason-ModernColBERT aligned with reference gist")
-    p.add_argument("--dataset_path", default="prepared_reasonir_hq")
-    p.add_argument("--base_model", default="lightonai/GTE-ModernColBERT-v1")
+    p.add_argument("--dataset_path", default="data/prepared_reasonir_hq")
+    p.add_argument("--base_model", default="Qwen/Qwen3-Embedding-0.6B")
     p.add_argument("--output_dir", default=None)
     p.add_argument("--run_name", default=None)
 
@@ -68,9 +68,9 @@ def parse_args() -> TrainingConfig:
 def main():
     cfg = parse_args()
 
-    # Force-disable MPS backend if requested, since PyLate CachedContrastive raises when MPS is available.
+    # Force-disable MPS backend if requested
     if cfg.force_cpu:
-        import torch  # local import to avoid side effects before arg parsing
+        import torch
         try:
             torch.backends.mps.is_available = lambda: False  # type: ignore[attr-defined]
         except Exception:
@@ -78,7 +78,7 @@ def main():
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
     if not os.path.isdir(cfg.dataset_path):
-        logger.error("Dataset directory not found at '%s'. Run prepare_dataset.py first.", cfg.dataset_path)
+        logger.error("Dataset directory not found at '%s'. Run reason-prepare first.", cfg.dataset_path)
         raise SystemExit(1)
 
     logger.info("Loading dataset from %s", cfg.dataset_path)

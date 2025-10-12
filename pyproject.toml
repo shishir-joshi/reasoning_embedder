@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reasoning-embedder"
+version = "0.1.0"
+description = "Reasoning embedding training utilities and CLIs"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy<2",
+  "torch",
+  "transformers>=4.48.2",
+  "sentence-transformers>=4.0.2",
+  "datasets",
+  "accelerate",
+  "pylate",
+]
+
+[project.scripts]
+reason-train = "reasoning_embedder.cli.train:main"
+reason-prepare = "reasoning_embedder.data.prepare:main"
+
+[tool.setuptools.packages.find]
+include = ["reasoning_embedder*"]
+exclude = ["data*"]

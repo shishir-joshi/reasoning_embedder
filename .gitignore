@@ -8,6 +8,7 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+.venv311/
 .env/
 
 # Jupyter
@@ -21,6 +22,9 @@ output/
 prepared_reasonir_hq/
 bright_evaluation_results/
 
+# Consolidated data directory (top-level only)
+/data/
+
 # Large model and dataset files
 *.safetensors
 *.pt
@@ -28,6 +32,9 @@ bright_evaluation_results/
 *.arrow
 *.sqlite
 *.zip
+
+# Build artifacts
+*.egg-info/
 
 # OS files
 .DS_Store

@@ -9,6 +9,7 @@ from sentence_transformers import (
 from pylate import losses, models, utils
 
 from .config import TrainingConfig
+from reasoning_embedder.models.compat import ensure_tokenizer_padding
 
 
 def build_model(cfg: TrainingConfig):
@@ -20,7 +21,9 @@ def build_model(cfg: TrainingConfig):
     )
     if cfg.force_cpu:
         kwargs["device"] = "cpu"
-    return models.ColBERT(**kwargs)
+    model = models.ColBERT(**kwargs)
+    ensure_tokenizer_padding(model)
+    return model
 
 
 def build_loss(cfg: TrainingConfig, model):
