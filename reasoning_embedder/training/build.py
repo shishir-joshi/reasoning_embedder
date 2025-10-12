@@ -9,35 +9,7 @@ from sentence_transformers import (
 from pylate import losses, models, utils
 
 from .config import TrainingConfig
-
-
-def _ensure_padding_token(model) -> None:
-    """Ensure tokenizer has a pad_token; add or alias if missing and resize embeddings.
-
-    Works for arbitrary HF models wrapped by Sentence-Transformers/PyLate.
-    """
-    try:
-        # sentence-transformers first module holds the tokenizer and auto_model
-        mod = model._first_module()  # type: ignore[attr-defined]
-        tok = getattr(mod, "tokenizer", None)
-        auto = getattr(mod, "auto_model", None)
-        if tok is None:
-            return
-        if tok.pad_token is None:
-            if getattr(tok, "eos_token", None):
-                tok.pad_token = tok.eos_token
-            else:
-                tok.add_special_tokens({"pad_token": "[PAD]"})
-                if auto is not None and hasattr(auto, "resize_token_embeddings"):
-                    auto.resize_token_embeddings(len(tok))
-        # Some tokenizers use pad_token but pad_token_id is None; fix id
-        if getattr(tok, "pad_token_id", None) is None and tok.pad_token is not None:
-            tok.pad_token_id = tok.convert_tokens_to_ids(tok.pad_token)
-            if auto is not None and hasattr(auto, "resize_token_embeddings"):
-                auto.resize_token_embeddings(len(tok))
-    except Exception:
-        # Be conservative: do not fail training if we can't introspect
-        pass
+from reasoning_embedder.models.compat import ensure_tokenizer_padding
 
 
 def build_model(cfg: TrainingConfig):
@@ -50,7 +22,7 @@ def build_model(cfg: TrainingConfig):
     if cfg.force_cpu:
         kwargs["device"] = "cpu"
     model = models.ColBERT(**kwargs)
-    _ensure_padding_token(model)
+    ensure_tokenizer_padding(model)
     return model
 
 
