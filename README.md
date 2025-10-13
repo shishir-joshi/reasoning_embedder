@@ -11,6 +11,19 @@ Train reasoning‑aware dense retrievers with a clean CLI.
   - reason-prepare
 - All datasets and outputs live under `data/` (git‑ignored).
 
+### Dataset preparation rationale
+The preparation step standardizes ReasonIR HQ examples against the BRIGHT documents to yield a single, clean schema that training expects:
+- Normalize query → always a single string (lists are joined).
+- Positives (pos) → each item is `[instruction, document_text]`. If HQ stores a BRIGHT document id, we resolve it to raw text using the BRIGHT corpus.
+- Negatives (neg) → already text in HQ; we preserve as `[instruction, document_text]`. If a value looks like an id and exists in BRIGHT, we prefer mapped text.
+- Shape consistency → every pos/neg pair is exactly two elements to keep collation predictable.
+- Graceful filtering → malformed pairs are skipped with debug logs rather than crashing.
+
+Why this matters:
+- Ensures the trainer always receives comparable (query, positive, negative) triplets with text on both sides (no late id lookups during training).
+- Enables accurate token length statistics for `--auto_lengths`, since all text is resolved before training.
+- Decouples data resolution from training for repeatability and easier debugging; the prepared dataset is a self‑contained artifact.
+
 ## Quick starts
 - Dry‑run + auto lengths (no training):
   - reason-train --auto_lengths --dry_run
