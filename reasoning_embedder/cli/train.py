@@ -30,6 +30,24 @@ def parse_args():
     p.add_argument("--fp16", action="store_true", default=False)
     p.add_argument("--cpu", action="store_true", default=False, help="Force CPU (disable CUDA/MPS)")
 
+    # Optimization/distributed toggles
+    p.add_argument("--grad_accum_steps", type=int, default=1)
+    p.add_argument("--grad_checkpoint", action="store_true", default=False)
+    p.add_argument("--no-gather", dest="gather_across_devices", action="store_false", help="Disable cross-device gather in loss (default on)")
+    p.set_defaults(gather_across_devices=True)
+
+    # LoRA / PEFT and 8-bit optimizer
+    p.add_argument("--lora", dest="use_lora", action="store_true", default=False)
+    p.add_argument("--lora_r", type=int, default=16)
+    p.add_argument("--lora_alpha", type=int, default=16)
+    p.add_argument("--lora_dropout", type=float, default=0.05)
+    p.add_argument("--lora_target_modules", type=str, default=None, help="Comma-separated module name substrings to target with LoRA (optional)")
+    p.add_argument("--optimizer_8bit", action="store_true", default=False, help="Use bitsandbytes 8-bit AdamW if available")
+
+    # Freezing
+    p.add_argument("--freeze_base", action="store_true", default=False, help="Freeze all base model params (useful with LoRA)")
+    p.add_argument("--train_last_n", type=int, default=None, help="If set, only train last N transformer layers (unfreezes those)")
+
     # Length auto-tuning and dry-run
     p.add_argument("--auto_lengths", action="store_true", default=False, help="Auto-derive document/query lengths from dataset percentiles")
     p.add_argument("--length_percentile", type=float, default=0.95, help="Percentile for auto length selection")
@@ -61,6 +79,17 @@ def parse_args():
         bf16=args.bf16,
         fp16=args.fp16,
         force_cpu=args.cpu,
+        grad_accum_steps=args.grad_accum_steps,
+        grad_checkpoint=args.grad_checkpoint,
+        gather_across_devices=args.gather_across_devices,
+        use_lora=args.use_lora,
+        lora_r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        lora_target_modules=[s.strip() for s in args.lora_target_modules.split(",")] if args.lora_target_modules else None,
+        optimizer_8bit=args.optimizer_8bit,
+        freeze_base=args.freeze_base,
+        train_last_n=args.train_last_n,
         auto_lengths=args.auto_lengths,
         length_percentile=args.length_percentile,
         length_sample=args.length_sample,

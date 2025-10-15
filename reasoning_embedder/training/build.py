@@ -12,6 +12,85 @@ from .config import TrainingConfig
 from reasoning_embedder.models.compat import ensure_tokenizer_padding
 
 
+def _maybe_enable_gradient_checkpointing(auto_model):
+    try:
+        if hasattr(auto_model, "gradient_checkpointing_enable"):
+            auto_model.gradient_checkpointing_enable()
+        elif hasattr(auto_model, "enable_input_require_grads"):
+            auto_model.enable_input_require_grads()
+    except Exception:
+        pass
+
+
+def _maybe_apply_lora(model, cfg: TrainingConfig):
+    if not cfg.use_lora:
+        return model
+    try:
+        from peft import LoraConfig, get_peft_model
+        mod = model._first_module()
+        auto = getattr(mod, "auto_model", None)
+        if auto is None:
+            return model
+        target = None
+        if cfg.lora_target_modules:
+            target = cfg.lora_target_modules
+        peft_cfg = LoraConfig(
+            r=cfg.lora_r,
+            lora_alpha=cfg.lora_alpha,
+            lora_dropout=cfg.lora_dropout,
+            bias="none",
+            task_type="FEATURE_EXTRACTION",
+            target_modules=target,
+        )
+        auto = get_peft_model(auto, peft_cfg)
+        # Re-attach wrapped model
+        setattr(mod, "auto_model", auto)
+        return model
+    except Exception:
+        return model
+
+
+def _maybe_freeze_layers(model, cfg: TrainingConfig):
+    try:
+        mod = model._first_module()
+        auto = getattr(mod, "auto_model", None)
+        if auto is None:
+            return
+        # Freeze all
+        if cfg.freeze_base:
+            for p in auto.parameters():
+                p.requires_grad = False
+        # Train last N layers (unfreeze them)
+        if cfg.train_last_n is not None and cfg.train_last_n > 0:
+            # Try common transformer stacks
+            stacks = []
+            for name in ("encoder.layer", "model.layers", "layers", "h"):
+                cur = auto
+                ok = True
+                for part in name.split("."):
+                    if hasattr(cur, part):
+                        cur = getattr(cur, part)
+                    else:
+                        ok = False
+                        break
+                if ok and hasattr(cur, "__len__"):
+                    stacks.append(cur)
+                    break
+            if stacks:
+                layers = stacks[0]
+                n = len(layers)
+                k = max(0, min(n, cfg.train_last_n))
+                for i, layer in enumerate(layers):
+                    if i >= n - k:
+                        for p in layer.parameters():
+                            p.requires_grad = True
+                    else:
+                        for p in layer.parameters():
+                            p.requires_grad = False
+    except Exception:
+        pass
+
+
 def build_model(cfg: TrainingConfig):
     kwargs = dict(
         model_name_or_path=cfg.base_model,
@@ -45,6 +124,18 @@ def build_model(cfg: TrainingConfig):
                     pass
     except Exception:
         pass
+    # Optional features
+    if cfg.grad_checkpoint:
+        try:
+            mod = model._first_module()
+            auto = getattr(mod, "auto_model", None)
+            if auto is not None:
+                _maybe_enable_gradient_checkpointing(auto)
+        except Exception:
+            pass
+
+    model = _maybe_apply_lora(model, cfg)
+    _maybe_freeze_layers(model, cfg)
     return model
 
 
@@ -52,7 +143,7 @@ def build_loss(cfg: TrainingConfig, model):
     return losses.CachedContrastive(
         model=model,
         mini_batch_size=cfg.mini_batch_size,
-        gather_across_devices=True,
+        gather_across_devices=bool(cfg.gather_across_devices),
         temperature=1.0,
     )
 
@@ -72,6 +163,9 @@ def build_args(cfg: TrainingConfig) -> SentenceTransformerTrainingArguments:
         )
     except Exception:
         use_mps = False
+    optim = None
+    if cfg.optimizer_8bit:
+        optim = "adamw_bnb_8bit"
     return SentenceTransformerTrainingArguments(
         output_dir=cfg.output_dir,
         num_train_epochs=cfg.num_train_epochs,
@@ -87,6 +181,8 @@ def build_args(cfg: TrainingConfig) -> SentenceTransformerTrainingArguments:
         no_cuda=cfg.force_cpu,
         use_mps_device=use_mps,
         use_cpu=cfg.force_cpu,
+        gradient_accumulation_steps=max(1, int(cfg.grad_accum_steps)),
+        optim=optim or "adamw_torch",
     )
 
 
