@@ -48,6 +48,25 @@ class TrainingConfig:
     eval_holdout: float = 0.01
     seed: int = 42
 
+    # Distributed/optimization features
+    grad_accum_steps: int = 1
+    grad_checkpoint: bool = False
+    gather_across_devices: bool = True
+
+    # PEFT / LoRA
+    use_lora: bool = False
+    lora_r: int = 16
+    lora_alpha: int = 16
+    lora_dropout: float = 0.05
+    lora_target_modules: Optional[List[str]] = None
+
+    # Optimizers
+    optimizer_8bit: bool = False
+
+    # Freezing
+    freeze_base: bool = False
+    train_last_n: Optional[int] = None
+
     def finalize(self) -> "TrainingConfig":
         """Fill derived fields like run_name and output_dir if missing."""
         short = self.base_model.split("/")[-1]
