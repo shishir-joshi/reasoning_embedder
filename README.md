@@ -1,5 +1,9 @@
 # reasoning_embedder
 
+<a target="_blank" href="https://colab.research.google.com/github/shishir-joshi/reasoning_embedder/blob/main/notebooks/Eval-Baseline.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
 Train reasoning‑aware dense retrievers with a clean CLI.
 
 ## Install
