@@ -58,12 +58,20 @@ def parse_args():
     p.add_argument("--sample", action="store_true", default=False)
     p.add_argument("--eval_holdout", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=42)
+    
     # Token pruning flags: optional pre-tokenization pruning of document tokens
     p.add_argument("--prune_tokens", action="store_true", default=False, help="Enable token pruning at the collator/tokenization stage")
     p.add_argument("--prune_strategy", type=str, default="length", choices=["length", "random", "attention", "threshold", "combined"], help="Pruning strategy to use (attention will need attention weights)")
     p.add_argument("--prune_keep_ratio", type=float, default=0.6, help="Fraction of tokens to keep (0 < r <= 1)")
     p.add_argument("--prune_min_tokens", type=int, default=16, help="Absolute minimum number of tokens to preserve per sequence")
     p.add_argument("--prune_seed", type=int, default=None, help="Random seed for deterministic random pruning")
+    
+    # Embedding pruning flags: post-encoding output embedding pruning
+    p.add_argument("--prune_embeddings", action="store_true", default=False, help="Enable post-encoding embedding pruning (reduces memory during forward pass)")
+    p.add_argument("--embedding_prune_strategy", type=str, default="hierarchical", choices=["hierarchical", "attention"], help="Embedding pruning strategy: hierarchical (clustering) or attention (importance)")
+    p.add_argument("--pool_factor", type=float, default=2.0, help="Hierarchical pooling factor (2.0 = 50%% reduction)")
+    p.add_argument("--embedding_keep_ratio", type=float, default=0.6, help="Attention-based embedding keep ratio")
+    p.add_argument("--protected_tokens", type=int, default=2, help="Number of initial tokens to preserve ([CLS], [D])")
 
     args = p.parse_args()
 
@@ -109,6 +117,11 @@ def parse_args():
         prune_keep_ratio=args.prune_keep_ratio,
         prune_min_tokens=args.prune_min_tokens,
         prune_seed=args.prune_seed,
+        prune_embeddings=args.prune_embeddings,
+        embedding_prune_strategy=args.embedding_prune_strategy,
+        pool_factor=args.pool_factor,
+        embedding_keep_ratio=args.embedding_keep_ratio,
+        protected_tokens=args.protected_tokens,
     ).finalize()
     return cfg
 

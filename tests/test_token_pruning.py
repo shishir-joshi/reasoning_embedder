@@ -14,6 +14,9 @@ from reasoning_embedder.optimization.token_pruning import (
     apply_pruning_mask,
     generate_pruning_mask,
     prune_colbert_embeddings,
+    prune_embeddings_hierarchical,
+    prune_embeddings_attention,
+    prune_embeddings_batch,
 )
 
 
@@ -166,3 +169,123 @@ def test_wrap_tokenize_with_pruning_basic():
     assert att_d.shape == ids_d.shape
     # ensure at least one padded token was introduced in non-query sample
     assert (ids_d == tok.pad_token_id).sum() >= 1
+
+
+# ============================================================================
+# Post-Encoding Embedding Pruning Tests
+# ============================================================================
+
+
+class TestEmbeddingPruningHierarchical:
+    def test_basic_hierarchical_numpy(self):
+        pytest.importorskip("scipy")
+        # Create embeddings with some similarity structure
+        emb = np.random.randn(20, 16).astype(np.float32)
+        # Add protected tokens (make them distinct)
+        emb[:2] = np.array([[1.0] * 16, [-1.0] * 16])
+        
+        pruned = prune_embeddings_hierarchical(emb, pool_factor=2.0, protected_tokens=2)
+        
+        # Should have ~50% reduction
+        assert pruned.shape[0] < emb.shape[0]
+        assert pruned.shape[0] >= 2  # at least protected tokens
+        assert pruned.shape[1] == emb.shape[1]  # dim unchanged
+        
+        # Protected tokens should be identical
+        assert np.allclose(pruned[0], emb[0])
+        assert np.allclose(pruned[1], emb[1])
+    
+    def test_hierarchical_torch(self):
+        if not _TORCH:
+            pytest.skip("torch not available")
+        pytest.importorskip("scipy")
+        
+        t = torch.randn(30, 8)
+        pruned = prune_embeddings_hierarchical(t, pool_factor=3.0, protected_tokens=2)
+        
+        assert isinstance(pruned, torch.Tensor)
+        assert pruned.shape[0] < t.shape[0]
+        assert pruned.shape[1] == t.shape[1]
+        assert pruned.device == t.device
+    
+    def test_too_few_tokens(self):
+        pytest.importorskip("scipy")
+        emb = np.random.randn(3, 4).astype(np.float32)
+        pruned = prune_embeddings_hierarchical(emb, pool_factor=2.0, protected_tokens=2)
+        # Should return unchanged when N <= protected + 1
+        assert pruned.shape == emb.shape
+
+
+class TestEmbeddingPruningAttention:
+    def test_basic_attention_numpy(self):
+        emb = np.random.randn(20, 16).astype(np.float32)
+        # Create attention weights favoring certain tokens
+        att = np.linspace(0, 1, 20)
+        
+        pruned = prune_embeddings_attention(emb, attention_weights=att, keep_ratio=0.5, protected_tokens=2)
+        
+        # Should keep ~50% of non-protected tokens
+        expected_kept = 2 + max(1, int(np.ceil((20 - 2) * 0.5)))
+        assert pruned.shape[0] <= expected_kept + 2  # some flexibility
+        assert pruned.shape[1] == emb.shape[1]
+    
+    def test_attention_torch(self):
+        if not _TORCH:
+            pytest.skip("torch not available")
+        
+        t = torch.randn(25, 12)
+        att = torch.rand(25)
+        
+        pruned = prune_embeddings_attention(t, attention_weights=att, keep_ratio=0.6, protected_tokens=2)
+        
+        assert isinstance(pruned, torch.Tensor)
+        assert pruned.shape[0] < t.shape[0]
+        assert pruned.shape[1] == t.shape[1]
+    
+    def test_no_attention_fallback(self):
+        # Should use self-attention (cosine similarity to mean)
+        emb = np.random.randn(15, 8).astype(np.float32)
+        pruned = prune_embeddings_attention(emb, keep_ratio=0.5, protected_tokens=1)
+        
+        assert pruned.shape[0] < emb.shape[0]
+        assert pruned.shape[0] >= 1  # at least protected
+
+
+class TestEmbeddingPruningBatch:
+    def test_batch_hierarchical_numpy(self):
+        pytest.importorskip("scipy")
+        batch = [
+            np.random.randn(20, 8).astype(np.float32),
+            np.random.randn(15, 8).astype(np.float32),
+            np.random.randn(25, 8).astype(np.float32),
+        ]
+        doclens = [20, 15, 25]
+        
+        pruned_batch, new_lens = prune_embeddings_batch(
+            batch, doclens, strategy="hierarchical", pool_factor=2.0, protected_tokens=2
+        )
+        
+        assert len(pruned_batch) == len(batch)
+        assert len(new_lens) == len(batch)
+        for i, (pr, orig) in enumerate(zip(pruned_batch, batch)):
+            assert pr.shape[0] < orig.shape[0]
+            assert pr.shape[1] == orig.shape[1]
+            assert new_lens[i] == pr.shape[0]
+    
+    def test_batch_attention_torch(self):
+        if not _TORCH:
+            pytest.skip("torch not available")
+        
+        batch = [torch.randn(10, 4), torch.randn(8, 4), torch.randn(12, 4)]
+        doclens = [10, 8, 12]
+        att_batch = [torch.rand(10), torch.rand(8), torch.rand(12)]
+        
+        pruned_batch, new_lens = prune_embeddings_batch(
+            batch, doclens, strategy="attention", keep_ratio=0.6, 
+            protected_tokens=1, attention_batch=att_batch
+        )
+        
+        assert len(pruned_batch) == 3
+        for i, pr in enumerate(pruned_batch):
+            assert isinstance(pr, torch.Tensor)
+            assert pr.shape[0] < batch[i].shape[0]

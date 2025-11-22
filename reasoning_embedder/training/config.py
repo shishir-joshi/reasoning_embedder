@@ -66,12 +66,20 @@ class TrainingConfig:
     # Freezing
     freeze_base: bool = False
     train_last_n: Optional[int] = None
+    
     # Token pruning (collator/tokenization stage)
     prune_tokens: bool = False
     prune_strategy: str = "length"
     prune_keep_ratio: float = 0.6
     prune_min_tokens: int = 16
     prune_seed: Optional[int] = None
+
+    # Embedding pruning (post-encoding stage)
+    prune_embeddings: bool = False
+    embedding_prune_strategy: str = "hierarchical"  # 'hierarchical' or 'attention'
+    pool_factor: float = 2.0  # for hierarchical (2.0 = 50% reduction)
+    embedding_keep_ratio: float = 0.6  # for attention-based
+    protected_tokens: int = 2  # preserve first N tokens ([CLS], [D])
 
     def finalize(self) -> "TrainingConfig":
         """Fill derived fields like run_name and output_dir if missing."""

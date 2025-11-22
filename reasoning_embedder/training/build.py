@@ -7,7 +7,11 @@ from sentence_transformers import (
     SentenceTransformerTrainingArguments,
 )
 from pylate import losses, models, utils
-from reasoning_embedder.optimization.token_pruning import generate_pruning_mask
+from reasoning_embedder.optimization.token_pruning import (
+    generate_pruning_mask,
+    prune_embeddings_hierarchical,
+    prune_embeddings_attention,
+)
 from typing import Callable
 try:
     import numpy as np
@@ -201,6 +205,64 @@ def wrap_tokenize_with_pruning(
     return _wrapped
 
 
+def wrap_doc_with_embedding_pruning(
+    doc_fn: Callable,
+    cfg: TrainingConfig,
+) -> Callable:
+    """Wrap model.doc() to apply post-encoding embedding pruning.
+    
+    This reduces memory by pruning the output embeddings after the forward pass,
+    unlike tokenization pruning which only masks inputs.
+    
+    Args:
+        doc_fn: Original model.doc() method
+        cfg: TrainingConfig with embedding pruning settings
+        
+    Returns:
+        Wrapped doc function that prunes output embeddings
+    """
+    strategy = cfg.embedding_prune_strategy
+    pool_factor = cfg.pool_factor
+    keep_ratio = cfg.embedding_keep_ratio
+    protected = cfg.protected_tokens
+    
+    def _wrapped(input_ids, attention_mask, keep_dims=True):
+        # Call original doc encoding
+        result = doc_fn(input_ids, attention_mask, keep_dims=keep_dims)
+        
+        # Handle different return formats
+        if keep_dims == 'return_mask':
+            D, mask = result
+        else:
+            D = result
+            mask = None
+        
+        # Only prune when keep_dims is False (list of variable-length tensors)
+        # For batched tensors (keep_dims=True), pruning breaks padding assumptions
+        if keep_dims is False and isinstance(D, list):
+            pruned = []
+            for emb in D:
+                if strategy == "hierarchical":
+                    pruned_emb = prune_embeddings_hierarchical(
+                        emb, pool_factor=pool_factor, protected_tokens=protected
+                    )
+                elif strategy == "attention":
+                    pruned_emb = prune_embeddings_attention(
+                        emb, keep_ratio=keep_ratio, protected_tokens=protected
+                    )
+                else:
+                    pruned_emb = emb  # fallback: no pruning
+                pruned.append(pruned_emb)
+            D = pruned
+        
+        # Return in same format as input
+        if mask is not None:
+            return D, mask
+        return D
+    
+    return _wrapped
+
+
 def build_model(cfg: TrainingConfig):
     kwargs = dict(
         model_name_or_path=cfg.base_model,
@@ -246,6 +308,11 @@ def build_model(cfg: TrainingConfig):
 
     model = _maybe_apply_lora(model, cfg)
     _maybe_freeze_layers(model, cfg)
+    
+    # Optionally wrap doc() for post-encoding embedding pruning
+    if cfg.prune_embeddings:
+        model.doc = wrap_doc_with_embedding_pruning(model.doc, cfg)
+    
     return model
 
 

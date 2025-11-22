@@ -46,10 +46,31 @@ Why this matters:
 - `--auto_lengths` samples the dataset and picks minimal doc/query lengths at a percentile (default 0.95), capped to the model context.
 - `--dry_run` prints the derived lengths and a rough per‑step activation memory estimate (no training).
 
+## Token & Embedding Pruning
+
+### Input-level pruning (tokenization stage)
+Reduces input token counts but model still allocates full embedding tensors:
+
+- `--prune_tokens`: enable token-level pruning during tokenization/collation
+- `--prune_strategy`: one of `length`, `random`, `attention`, `threshold`, `combined` (default: `length`)
+- `--prune_keep_ratio`: fraction of tokens to keep (default: 0.6)
+- `--prune_min_tokens`: absolute minimum tokens to preserve per sequence (default: 16)
+
+### Output-level pruning (post-encoding stage) **NEW**
+Reduces actual output embedding size for true memory savings during forward pass:
+
+- `--prune_embeddings`: enable post-encoding embedding pruning (reduces memory)
+- `--embedding_prune_strategy`: `hierarchical` (semantic clustering, recommended) or `attention` (importance-based, faster)
+- `--pool_factor`: for hierarchical pooling (2.0 = 50% reduction, 3.0 = 66% reduction)
+- `--embedding_keep_ratio`: for attention-based pruning (0.6 = keep 60%)
+- `--protected_tokens`: preserve first N tokens like [CLS], [D] (default: 2)
+
+**Recommendation:** Use `--prune_embeddings --embedding_prune_strategy hierarchical --pool_factor 2.0` for 40-60% memory reduction with minimal quality loss.
+
 ## CPU/GPU tips
 - Force CPU: add `--cpu` (disables CUDA/MPS).
-- For low VRAM GPUs (≈15GB), try: smaller lengths/batches, `--fp16`, and gradient‑friendly settings. Example:
-  - reason-train --auto_lengths --epochs 1 --batch_size 2 --mini_batch_size 1 --fp16 --num_workers 0
+- For low VRAM GPUs (≈15GB), try: smaller lengths/batches, `--fp16`, embedding pruning, and gradient‑friendly settings. Example:
+  - `reason-train --auto_lengths --prune_embeddings --pool_factor 2.0 --epochs 1 --batch_size 2 --mini_batch_size 1 --fp16 --num_workers 0`
 
 ## Outputs
 - Artifacts under `data/output/<model>/<run>/` (configurable via `--output_dir`).
@@ -57,7 +78,7 @@ Why this matters:
 ## Troubleshooting
 - Tokenizer pad token errors are handled automatically.
 - On Mac, MPS is used only if available; use `--cpu` to disable.
-- For CUDA OOM, reduce `--document_length/--query_length`, `--batch_size`, or use `--fp16`.
+- For CUDA OOM, reduce `--document_length/--query_length`, `--batch_size`, use `--fp16`, or enable `--prune_embeddings`.
 
 ## Agent coordination
 For handoffs between LLM assistants and to track session context, see:
