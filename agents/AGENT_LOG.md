@@ -144,3 +144,117 @@ reason-train --auto_lengths --prune_tokens --pruning_strategy attention --prunin
 - Combined strategy prefers attention when present, otherwise uses positional pruning
 - Token pruning integrates cleanly into existing training workflow via CLI flags
 
+---
+
+## 2025-11-22 Post-Encoding Embedding Pruning Implementation
+
+Date: 2025-11-22
+Assistant: GitHub Copilot
+Session: Hierarchical and attention-based embedding pruning
+
+### Context
+- Goal: Add true memory-efficient embedding pruning after model forward pass
+- Prior work: Token pruning only masked inputs; no actual memory savings during forward pass
+- Insight: Need post-encoding pruning to reduce output embedding tensors
+- Research: ColBERT v2 hierarchical pooling and attention-based methods from literature
+
+### Changes in this session
+**Core optimization module:**
+- `reasoning_embedder/optimization/token_pruning.py` - Added 3 post-encoding functions:
+  * `prune_embeddings_hierarchical()` - Semantic clustering via scipy (production-ready, ColBERT-proven)
+  * `prune_embeddings_attention()` - Importance-based pruning using attention scores or self-attention
+  * `prune_embeddings_batch()` - Batch processing wrapper for variable-length embeddings
+- Updated module docstring to distinguish tokenization vs post-encoding pruning
+- `reasoning_embedder/optimization/__init__.py` - Exported new functions
+
+**Training integration:**
+- `reasoning_embedder/training/config.py` - Added 5 new fields:
+  * `prune_embeddings`: enable post-encoding pruning flag
+  * `embedding_prune_strategy`: 'hierarchical' or 'attention'
+  * `pool_factor`: hierarchical pooling reduction (2.0 = 50%, 3.0 = 66%)
+  * `embedding_keep_ratio`: attention-based keep ratio
+  * `protected_tokens`: preserve first N tokens ([CLS], [D])
+- `reasoning_embedder/training/build.py` - Added `wrap_doc_with_embedding_pruning()` function that wraps `model.doc()` to apply pruning when `keep_dims=False`
+- `reasoning_embedder/cli/train.py` - Added 5 CLI flags for embedding pruning control
+
+**Tests:**
+- `tests/test_token_pruning.py` - Added 8 new test cases (24 total, all passing):
+  * `TestEmbeddingPruningHierarchical`: 3 tests (NumPy, Torch, edge cases)
+  * `TestEmbeddingPruningAttention`: 3 tests (NumPy, Torch, fallback)
+  * `TestEmbeddingPruningBatch`: 2 tests (hierarchical, attention)
+
+**Notebooks:**
+- `notebooks/token_pruning_demo.ipynb` - Added section 6 with 6 new cells:
+  * Intro to post-encoding pruning vs tokenization pruning
+  * Hierarchical pooling examples with multiple pool factors
+  * Attention-based pruning examples with multiple keep ratios
+  * Direct memory comparison showing true savings
+  * Recommendation: use post-encoding for actual memory reduction
+
+**Documentation:**
+- `docs/TOKEN_PRUNING_METHODS_REPORT.md` - Comprehensive 8-section research report:
+  * Executive summary of tokenization vs post-encoding gap
+  * Official ColBERT approaches (hierarchical pooling, skiplist masking)
+  * ColBERTv2 residual compression (storage, not runtime)
+  * Literature review (ViT token pruning, ToMe)
+  * Recommended approaches with implementation plans
+  * Expected results table (memory/quality tradeoffs)
+  * References and conclusions
+- `README.md` - Updated pruning section:
+  * Split into "Input-level" and "Output-level" subsections
+  * Added embedding pruning flags documentation
+  * Updated examples with embedding pruning
+  * Updated troubleshooting for OOM issues
+
+**Rationale:**
+- Tokenization pruning only masks inputs; model still allocates full embedding tensors (no memory savings)
+- Post-encoding pruning reduces actual output tensor size (40-66% memory reduction)
+- Hierarchical: semantic-aware, production-proven (ColBERT), minimal quality loss
+- Attention: faster, lighter, but less accurate
+- Framework-agnostic (NumPy + Torch), preserves special tokens
+
+### Commands run
+```bash
+# Testing all pruning functionality
+pytest tests/test_token_pruning.py -v  # 24 passed in 7.62s
+
+# Commit and push
+git add README.md reasoning_embedder/ tests/ notebooks/token_pruning_demo.ipynb docs/TOKEN_PRUNING_METHODS_REPORT.md
+git commit -m "Add post-encoding embedding pruning (hierarchical + attention-based)"
+git push origin main
+```
+
+### Validation
+- All 24 tests passing (16 original + 8 new)
+- Hierarchical pruning requires scipy (optional dependency)
+- Protected tokens preserved correctly (verified in tests)
+- Both NumPy and Torch paths tested
+- Batch processing handles variable-length embeddings
+- Memory calculations validated in notebook
+
+### Expected results
+**Memory reduction:**
+- Hierarchical 2.0×: 50% reduction, -1 to -3% recall
+- Hierarchical 3.0×: 66% reduction, -3 to -5% recall  
+- Attention 0.6: 40% reduction, -3 to -7% recall
+
+**Performance:**
+- Hierarchical: +15-30% overhead (clustering)
+- Attention: +5-15% overhead (importance scoring)
+
+### Next steps
+- Benchmark on BRIGHT evaluation (pruned vs unpruned)
+- Measure actual memory usage during training with different strategies
+- Consider faiss clustering for faster hierarchical pooling at scale
+- Investigate learned token merging (ToMe) for fine-tuning
+- A/B test strategies across multiple domains
+
+### Notes
+- Key insight: tokenization pruning ≠ memory savings (only masks inputs)
+- Post-encoding pruning = true memory reduction (reduces output tensors)
+- Hierarchical pooling is production-ready (from official ColBERT)
+- Attention-based is faster alternative for speed-critical scenarios
+- Both strategies preserve special tokens and work with variable-length inputs
+- Integration is modular: wrapper pattern around model.doc() keeps changes isolated
+- CLI-driven: full control via flags, no code changes needed for experiments
+
