@@ -58,3 +58,11 @@ Why this matters:
 - Tokenizer pad token errors are handled automatically.
 - On Mac, MPS is used only if available; use `--cpu` to disable.
 - For CUDA OOM, reduce `--document_length/--query_length`, `--batch_size`, or use `--fp16`.
+
+## Agent coordination
+For handoffs between LLM assistants and to track session context, see:
+
+- agents/AGENT_LOG.md — the running coordination log
+- agents/TEMPLATE.md — template for adding new coordination entries
+
+When starting a new session, append a new entry to `agents/AGENT_LOG.md` using the template.

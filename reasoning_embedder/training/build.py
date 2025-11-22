@@ -7,6 +7,14 @@ from sentence_transformers import (
     SentenceTransformerTrainingArguments,
 )
 from pylate import losses, models, utils
+from reasoning_embedder.optimization.token_pruning import generate_pruning_mask
+from typing import Callable
+try:
+    import numpy as np
+    import torch as _torch
+except Exception:
+    _torch = None
+    np = None
 
 from .config import TrainingConfig
 from reasoning_embedder.models.compat import ensure_tokenizer_padding
@@ -89,6 +97,108 @@ def _maybe_freeze_layers(model, cfg: TrainingConfig):
                             p.requires_grad = False
     except Exception:
         pass
+
+
+def wrap_tokenize_with_pruning(
+    tokenize_fn: Callable,
+    tokenizer,
+    keep_ratio: float,
+    strategy: str,
+    min_tokens: int,
+    seed: Optional[int] = None,
+) -> Callable:
+    """Return a tokenize function that prunes non-query tokens by zeroing them.
+
+    The returned callable keeps the same signature as the original `tokenize_fn`.
+    It operates on the tokenized outputs (torch tensors or numpy arrays) and replaces
+    pruned token positions with the tokenizer's pad_token_id and zeroes the attention mask.
+    """
+    pad_id = getattr(tokenizer, "pad_token_id", 0)
+
+    def _wrapped(texts, is_query=False, pad_document=True):
+        out = tokenize_fn(texts, is_query=is_query, pad_document=pad_document)
+        if is_query:
+            return out
+        ids = out.get("input_ids")
+        att = out.get("attention_mask")
+        if ids is None or att is None:
+            return out
+        # operate on numpy or torch
+        try:
+            import torch as _t
+        except Exception:
+            _t = None
+
+        if _t is not None and _t.is_tensor(ids):
+            ids_t = ids
+            att_t = att
+            B, L = ids_t.shape
+            for i in range(B):
+                row_ids = ids_t[i]
+                row_mask = att_t[i]
+                active_idx = (row_mask != 0).nonzero(as_tuple=True)[0].tolist()
+                N = len(active_idx)
+                if N == 0:
+                    continue
+                preserve = [j for j in active_idx if row_ids[j].item() in (getattr(tokenizer, "cls_token_id", -1), getattr(tokenizer, "sep_token_id", -1))]
+                try:
+                    mask = generate_pruning_mask(
+                        attention_weights=None,
+                        keep_ratio=keep_ratio,
+                        strategy=strategy,
+                        N=N,
+                        min_tokens=min_tokens,
+                        preserve_indices=[active_idx.index(x) for x in preserve] if preserve else None,
+                        seed=seed,
+                    )
+                except Exception:
+                    mask = generate_pruning_mask(keep_ratio=keep_ratio, strategy="length", N=N, min_tokens=min_tokens)
+                # mask might be numpy or torch tensor
+                mask_list = mask.tolist() if hasattr(mask, "tolist") else list(mask)
+                for idx_in_active, keep in enumerate(mask_list):
+                    if not keep:
+                        pos = active_idx[idx_in_active]
+                        row_ids[pos] = pad_id
+                        row_mask[pos] = 0
+            out["input_ids"] = ids_t
+            out["attention_mask"] = att_t
+            return out
+
+        # numpy path
+        ids_np = ids
+        att_np = att
+        B, L = ids_np.shape
+        for i in range(B):
+            row_ids = ids_np[i]
+            row_mask = att_np[i]
+            active_idx = [j for j, v in enumerate(row_mask) if v]
+            N = len(active_idx)
+            if N == 0:
+                continue
+            preserve = [j for j in active_idx if row_ids[j] in (getattr(tokenizer, "cls_token_id", -1), getattr(tokenizer, "sep_token_id", -1))]
+            try:
+                mask = generate_pruning_mask(
+                    attention_weights=None,
+                    keep_ratio=keep_ratio,
+                    strategy=strategy,
+                    N=N,
+                    min_tokens=min_tokens,
+                    preserve_indices=[active_idx.index(x) for x in preserve] if preserve else None,
+                    seed=seed,
+                )
+            except Exception:
+                mask = generate_pruning_mask(keep_ratio=keep_ratio, strategy="length", N=N, min_tokens=min_tokens)
+            mask_list = mask.tolist() if hasattr(mask, "tolist") else list(mask)
+            for idx_in_active, keep in enumerate(mask_list):
+                if not keep:
+                    pos = active_idx[idx_in_active]
+                    row_ids[pos] = pad_id
+                    row_mask[pos] = 0
+        out["input_ids"] = ids_np
+        out["attention_mask"] = att_np
+        return out
+
+    return _wrapped
 
 
 def build_model(cfg: TrainingConfig):
@@ -200,7 +310,19 @@ def create_trainer(cfg: TrainingConfig, train_dataset) -> SentenceTransformerTra
     model = build_model(cfg)
     loss = build_loss(cfg, model)
     args = build_args(cfg)
-    collator = utils.ColBERTCollator(model.tokenize)
+    # Wrap collator.tokenize with an optional pruning step to reduce token memory
+    collator_tokenize = model.tokenize
+    if cfg.prune_tokens:
+        tok = getattr(model._first_module(), "tokenizer", None)
+        collator_tokenize = wrap_tokenize_with_pruning(
+            tokenize_fn=collator_tokenize,
+            tokenizer=tok,
+            keep_ratio=cfg.prune_keep_ratio,
+            strategy=cfg.prune_strategy,
+            min_tokens=cfg.prune_min_tokens,
+            seed=cfg.prune_seed,
+        )
+    collator = utils.ColBERTCollator(collator_tokenize)
 
     trainer = SentenceTransformerTrainer(
         model=model,

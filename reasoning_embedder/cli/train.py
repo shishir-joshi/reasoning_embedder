@@ -58,6 +58,12 @@ def parse_args():
     p.add_argument("--sample", action="store_true", default=False)
     p.add_argument("--eval_holdout", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=42)
+    # Token pruning flags: optional pre-tokenization pruning of document tokens
+    p.add_argument("--prune_tokens", action="store_true", default=False, help="Enable token pruning at the collator/tokenization stage")
+    p.add_argument("--prune_strategy", type=str, default="length", choices=["length", "random", "attention", "threshold", "combined"], help="Pruning strategy to use (attention will need attention weights)")
+    p.add_argument("--prune_keep_ratio", type=float, default=0.6, help="Fraction of tokens to keep (0 < r <= 1)")
+    p.add_argument("--prune_min_tokens", type=int, default=16, help="Absolute minimum number of tokens to preserve per sequence")
+    p.add_argument("--prune_seed", type=int, default=None, help="Random seed for deterministic random pruning")
 
     args = p.parse_args()
 
@@ -98,6 +104,11 @@ def parse_args():
         do_sample=args.sample,
         eval_holdout=args.eval_holdout,
         seed=args.seed,
+        prune_tokens=args.prune_tokens,
+        prune_strategy=args.prune_strategy,
+        prune_keep_ratio=args.prune_keep_ratio,
+        prune_min_tokens=args.prune_min_tokens,
+        prune_seed=args.prune_seed,
     ).finalize()
     return cfg
 
