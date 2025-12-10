@@ -8,13 +8,18 @@ version = "0.1.0"
 description = "Reasoning embedding training utilities and CLIs"
 requires-python = ">=3.11"
 dependencies = [
-  "numpy<2",
-  "torch",
-  "transformers>=4.48.2",
-  "sentence-transformers>=4.0.2",
-  "datasets",
-  "accelerate",
-  "pylate",
+  "numpy==1.26.4",
+  "torch==2.2.2",
+  "transformers==4.57.1",
+  "sentence-transformers==4.0.2",
+  "datasets==4.2.0",
+  "accelerate==1.10.1",
+  "pylate==1.2.0",
+  "voyager==2.1.0",
+  "pandas==2.3.3",
+  "matplotlib==3.10.7",
+  "scikit-learn==1.7.2",
+  "scipy==1.16.2",
 ]
 
 [project.scripts]

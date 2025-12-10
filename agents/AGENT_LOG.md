@@ -258,3 +258,44 @@ git push origin main
 - Integration is modular: wrapper pattern around model.doc() keeps changes isolated
 - CLI-driven: full control via flags, no code changes needed for experiments
 
+
+## 2025-12-04 Notebook pruning + explorer refresh
+
+Date: 2025-12-04
+Assistant: GitHub Copilot
+Session: Notebook minimization + explorer refactor
+
+### Context
+- User requested keeping only the essential notebooks and deleting the scratch/sandbox ones created by earlier agents.
+- Optional requirement: keep a single lightweight explorer notebook for ad-hoc dataset inspection.
+
+### Changes in this session
+- Deleted `notebooks/Eval_Baseline_colab.ipynb`, `notebooks/explore_reasonir_dataset.ipynb`, and `notebooks/explore_bright_benchmark.ipynb` (all redundant or incomplete).
+- Rebuilt `notebooks/explore_prepared_dataset.ipynb` into a compact workflow: load prepared dataset slice → preview examples → embed positives with MiniLM → run CPU search helper.
+- Documented the new "minimum useful" notebook set plus the optional explorer section inside `README.md`.
+
+### Notes
+- Remaining notebooks: `Eval-Baseline`, `token_pruning_demo`, `pylate_minimal_example`, `data_minimal`, and the refreshed explorer.
+- Explorer relies on SentenceTransformers (MiniLM) for speed; swap model ID if ColBERT parity is needed.
+
+## 2025-12-04 End-to-End Validation Kickoff
+
+Date: 2025-12-04
+Assistant: GitHub Copilot
+Session: Repository validation + test expansion
+
+### Context
+- User requested a full repo sweep to ensure the Reasoning Embedder stack works end-to-end with adequate automated coverage.
+- Previous agents focused on feature delivery (pruning, LoRA, distributed flags); regression insurance is now the priority.
+
+### Actions so far
+- Installed the package in editable mode to expose the `reason-*` console scripts.
+- Ran `reason-prepare` successfully (ReasonIR HQ + BRIGHT ID resolution) to verify the data pipeline still runs.
+- Executed `reason-train --cpu --auto_lengths --dry_run --sample ...` to validate CLI wiring, auto-lengths, and dry-run memory estimation.
+- Ran the pytest suite (token pruning tests) to confirm the existing coverage is green on the refreshed environment.
+
+### Next steps
+- Add targeted unit tests for the training data preprocessing helpers and embedding-pruning wrapper to broaden coverage beyond token pruning.
+- Re-run pytest after adding coverage and document results.
+- Report findings plus any remaining risks back to the user.
+

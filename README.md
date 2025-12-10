@@ -80,6 +80,13 @@ Reduces actual output embedding size for true memory savings during forward pass
 - On Mac, MPS is used only if available; use `--cpu` to disable.
 - For CUDA OOM, reduce `--document_length/--query_length`, `--batch_size`, use `--fp16`, or enable `--prune_embeddings`.
 
+## Notebooks
+- `notebooks/Eval-Baseline.ipynb` – full BRIGHT/NanoBEIR evaluation workflow with reproducible configs.
+- `notebooks/token_pruning_demo.ipynb` – end-to-end token + embedding pruning comparison.
+- `notebooks/pylate_minimal_example.ipynb` – quickstart for the PyLate/ColBERT API (encode, index, train).
+- `notebooks/data_minimal.ipynb` – tiny dataset sanity check (counts + spot inspection).
+- `notebooks/explore_prepared_dataset.ipynb` – optional lightweight explorer that builds a CPU mini-index for ad-hoc querying.
+
 ## Agent coordination
 For handoffs between LLM assistants and to track session context, see:
 
