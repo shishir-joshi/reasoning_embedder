@@ -8,6 +8,8 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+.venv-*/
+.venv-x86/
 .venv311/
 .env/
 
@@ -35,6 +37,9 @@ bright_evaluation_results/
 
 # Build artifacts
 *.egg-info/
+
+# Local/dev artifacts
+pylate-index/
 
 # OS files
 .DS_Store
