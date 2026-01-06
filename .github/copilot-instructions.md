@@ -163,3 +163,65 @@ When CUDA/compiled dependencies unavailable, use Sentence Transformers baseline:
 - Avoid PyLate/PLAID compiled extensions that require CUDA
 
 When implementing new features, follow the established pattern of CLI arg → TrainingConfig field → build.py implementation. Always test with `--dry_run` first and consider CPU compatibility for broader usability.
+
+## Agent Coordination
+
+### Agent Log Updates
+After completing significant work sessions, update `agents/AGENT_LOG.md` to maintain context continuity across sessions:
+
+**When to update:**
+- After implementing new features or major changes
+- When resolving complex bugs or technical issues
+- After completing multi-step workflows (environment setup, notebook refactors, etc.)
+- When documenting important decisions or architectural changes
+
+**Log entry format:**
+```markdown
+## YYYY-MM-DD Brief Session Title
+
+Date: YYYY-MM-DD
+Assistant: GitHub Copilot
+Session: One-line session description
+
+### Context
+- Goal: What was the objective
+- Prior work: Relevant previous work
+- Constraint: Key limitations or requirements
+
+### Changes in this session
+**Category (e.g., Core module, Scripts, Notebooks):**
+- `path/to/file` - Brief description of changes
+- Key implementation details
+
+### Commands run
+```bash
+# Document key commands with results
+command --flags
+# Results: brief outcome
+```
+
+### Validation
+- Test results, metrics, or verification steps
+- What was confirmed working
+
+### Technical details (optional)
+- Implementation approach
+- Design decisions
+- Tradeoffs considered
+
+### Next steps
+- Suggested follow-up work
+- Open questions or TODOs
+
+### Notes
+- Important caveats, gotchas, or learnings
+```
+
+**Example reference:** See existing entries in `agents/AGENT_LOG.md` for established patterns (token pruning implementation, environment scripts, notebook refactors).
+
+**Best practices:**
+- Keep entries focused on _what_ changed and _why_, not detailed code listings
+- Document validation results (tests passed, commands run, metrics achieved)
+- Include commands with their outcomes for reproducibility
+- Note any non-obvious technical decisions or workarounds
+- Add cross-references to related entries when building on prior work
