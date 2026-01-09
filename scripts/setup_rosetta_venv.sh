@@ -65,16 +65,23 @@ echo "Creating venv: $VENV_DIR"
 PIP="$REPO_ROOT/$VENV_DIR/bin/pip"
 PY="$REPO_ROOT/$VENV_DIR/bin/python"
 
+# Configure pip cache usage (default: use cache for speed; set NO_CACHE=1 to disable)
+PIP_CACHE_FLAG=""
+if [[ "${NO_CACHE:-}" == "1" ]]; then
+  PIP_CACHE_FLAG="--no-cache-dir"
+  echo "ℹ️  pip cache disabled (NO_CACHE=1)"
+fi
+
 # Upgrade core tooling
-"${ARCH_PREFIX[@]}" "$PIP" install --upgrade pip setuptools wheel
+"${ARCH_PREFIX[@]}" "$PIP" install $PIP_CACHE_FLAG --upgrade pip setuptools wheel
 
 # Install dependencies (keep editable install last)
 if [[ -f requirements.txt ]]; then
-  "${ARCH_PREFIX[@]}" "$PIP" install -r requirements.txt
+  "${ARCH_PREFIX[@]}" "$PIP" install $PIP_CACHE_FLAG -r requirements.txt
 fi
 
 # Install project
-"${ARCH_PREFIX[@]}" "$PIP" install -e . --no-deps
+"${ARCH_PREFIX[@]}" "$PIP" install $PIP_CACHE_FLAG -e . --no-deps
 
 # Print environment info
 "${ARCH_PREFIX[@]}" "$PY" -c "import platform,sys; print('python',sys.version.split()[0]); print('machine',platform.machine()); print('executable',sys.executable)"
